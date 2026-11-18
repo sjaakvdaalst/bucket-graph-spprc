@@ -1,4 +1,13 @@
 #pragma once
+#ifdef _WIN32
+#include <malloc.h>
+#define BGP_ALIGNED_ALLOC(al, n) _aligned_malloc((n), (al))
+#define BGP_ALIGNED_FREE(p) _aligned_free(p)
+#else
+#define BGP_ALIGNED_ALLOC(al, n) std::aligned_alloc((al), (n))
+#define BGP_ALIGNED_FREE(p) std::free(p)
+#endif
+
 
 #include "types.h"
 
@@ -111,7 +120,7 @@ public:
     /// Release all memory and reset state.
     void clear() {
         for (auto* block : blocks_) {
-            std::free(block);
+            BGP_ALIGNED_FREE(block);
         }
         blocks_.clear();
         arenas_.clear();
@@ -139,7 +148,7 @@ private:
         std::size_t bytes = ls * kBlockLabels;
         std::size_t alignment = std::max(alignof(Label<Pack>), kCacheLine);
         bytes = (bytes + alignment - 1) & ~(alignment - 1);
-        auto* block = static_cast<char*>(std::aligned_alloc(alignment, bytes));
+        auto* block = static_cast<char*>(BGP_ALIGNED_ALLOC(alignment, bytes));
         assert(block);
         blocks_.push_back(block);
         arena.free_pos = block;
